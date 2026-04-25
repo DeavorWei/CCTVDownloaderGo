@@ -1,0 +1,86 @@
+# Binaries and executables
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Build output
+Dist/
+dist/
+bin/
+out/
+
+# Test data and samples
+TestData/
+TestDate/
+
+# Logs
+logs/
+*.log
+
+# IDE and editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Go specific
+# Test binary, built with `go test -c`
+*.test
+# Output of the go coverage tool
+*.out
+coverage.txt
+coverage.html
+
+# Go workspace file
+go.work
+go.work.sum
+
+# Dependency directories
+vendor/
+
+# Build cache
+.cache/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+
+# Config files with sensitive data (keep template)
+# *.yaml  # Uncomment if config contains sensitive data
+# *.yml   # Uncomment if config contains sensitive data
+
+# Downloaded videos (if any)
+videos/
+*.mp4
+*.ts
+*.m3u8
+
+# Node.js (if using for assets processing)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Package lock files (optional, uncomment if needed)
+# package-lock.json
+# yarn.lock
