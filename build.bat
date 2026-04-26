@@ -4,8 +4,8 @@ setlocal
 echo === CCTV Video Downloader Build Script ===
 
 :: Basic configuration
-set BINARY_NAME=cctvdown
-set MAIN_PATH=./cmd/cctvdown/dist
+set BINARY_NAME=./dist/cctvdown
+set MAIN_PATH=./cmd/cctvdown/
 set VERSION=0.1.0
 
 
