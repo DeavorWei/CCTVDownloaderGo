@@ -40,15 +40,33 @@ type Video4KInfo struct {
 	Image    string // 封面图URL
 	Brief    string // 简介
 	M3U8URL  string // 4K M3U8 URL（已处理）
+	AlbumID  string // 专辑ID
 }
 
 // cctv4kVideoInfoResponse 4K视频信息API响应结构
 type cctv4kVideoInfoResponse struct {
-	VID   string `json:"vid"`
-	Title string `json:"title"`
-	Brief string `json:"brief"`
-	Image string `json:"img"`
-	Time  string `json:"time"`
+	VID     string `json:"vid"`
+	Title   string `json:"title"`
+	Brief   string `json:"brief"`
+	Image   string `json:"img"`
+	Time    string `json:"time"`
+	AlbumID string `json:"album_id"`
+}
+
+// cctv4kAlbumListResponse 4K专辑视频列表API响应结构
+type cctv4kAlbumListResponse struct {
+	Data struct {
+		Total int `json:"total"`
+		List  []struct {
+			ID    string `json:"id"`
+			Title string `json:"title"`
+			URL   string `json:"url"`
+			GUID  string `json:"guid"`
+			Image string `json:"image"`
+			Time  string `json:"time"`
+			Brief string `json:"brief"`
+		} `json:"list"`
+	} `json:"data"`
 }
 
 // GetVideoInfoByGUID 通过GUID获取4K视频信息
@@ -81,33 +99,107 @@ func (c *CCTV4KClient) GetVideoInfoByGUID(guid string) (*Video4KInfo, error) {
 	}
 
 	info := &Video4KInfo{
-		GUID:  result.VID,
-		Title: result.Title,
-		Time:  result.Time,
-		Image: result.Image,
-		Brief: result.Brief,
+		GUID:    result.VID,
+		Title:   result.Title,
+		Time:    result.Time,
+		Image:   result.Image,
+		Brief:   result.Brief,
+		AlbumID: result.AlbumID,
 	}
 
 	c.logger.Info("获取4K视频信息成功",
 		"guid", guid,
 		"title", info.Title,
+		"album_id", info.AlbumID,
 		"time", info.Time,
 	)
 
 	return info, nil
 }
 
-// GetVideoListByGUID 使用GUID获取视频列表（单个视频）
-// 用于4K频道页面，当column_id为空时使用guid作为标识
+// GetVideoListByAlbumID 通过专辑ID获取4K视频列表
+// 使用API：https://api.cntv.cn/NewVideo/getVideoListByAlbumIdNew?id=xxx&serviceId=cctv4k&p=1&n=100&sort=asc&mode=0&pub=2
+func (c *CCTV4KClient) GetVideoListByAlbumID(albumID string) ([]AlbumVideoItem, error) {
+	c.logger.Info("通过专辑ID获取4K视频列表", "album_id", albumID)
+
+	apiURL := "https://api.cntv.cn/NewVideo/getVideoListByAlbumIdNew"
+
+	resp, err := c.client.R().
+		SetQueryParams(map[string]string{
+			"id":        albumID,
+			"serviceId": "cctv4k",
+			"p":         "1",
+			"n":         "100",
+			"sort":      "asc",
+			"mode":      "0",
+			"pub":       "2",
+		}).
+		Get(apiURL)
+
+	if err != nil {
+		return nil, fmt.Errorf("请求4K专辑视频列表失败: %w", err)
+	}
+
+	c.logger.Debug("4K专辑API响应", "status", resp.StatusCode(), "body", resp.String())
+
+	var result cctv4kAlbumListResponse
+	if err := parseJSONResponse(resp.Body(), &result); err != nil {
+		return nil, fmt.Errorf("解析4K专辑视频列表失败: %w", err)
+	}
+
+	var videos []AlbumVideoItem
+	for _, item := range result.Data.List {
+		videos = append(videos, AlbumVideoItem{
+			GUID:  item.GUID,
+			Title: item.Title,
+			Time:  item.Time,
+			Image: item.Image,
+			Brief: item.Brief,
+		})
+	}
+
+	c.logger.Info("获取4K专辑视频列表成功", "album_id", albumID, "total", result.Data.Total, "count", len(videos))
+	return videos, nil
+}
+
+// GetVideoListByGUID 使用GUID获取视频列表
+// 逻辑：
+// 1. 先获取单个视频信息（包含album_id）
+// 2. 如果有album_id，则获取专辑全部视频列表
+// 3. 如果没有album_id，返回单个视频
 func (c *CCTV4KClient) GetVideoListByGUID(guid string) ([]AlbumVideoItem, error) {
 	c.logger.Info("通过GUID获取4K视频列表", "guid", guid)
 
+	// 第一步：获取单个视频信息（包含album_id）
 	info, err := c.GetVideoInfoByGUID(guid)
 	if err != nil {
 		return nil, err
 	}
 
-	// 将单个视频转换为列表格式
+	// 第二步：如果有album_id，获取专辑全部视频列表
+	if info.AlbumID != "" {
+		c.logger.Info("检测到专辑ID，获取专辑全部视频", "album_id", info.AlbumID)
+
+		videos, err := c.GetVideoListByAlbumID(info.AlbumID)
+		if err != nil {
+			c.logger.Warn("获取专辑视频列表失败，回退到单视频模式", "error", err)
+			// 回退：返回单个视频
+			return []AlbumVideoItem{
+				{
+					GUID:  info.GUID,
+					Title: info.Title,
+					Time:  info.Time,
+					Image: info.Image,
+					Brief: info.Brief,
+				},
+			}, nil
+		}
+
+		return videos, nil
+	}
+
+	// 没有album_id，返回单个视频（如单集视频）
+	c.logger.Info("无专辑ID，返回单个视频")
 	videos := []AlbumVideoItem{
 		{
 			GUID:  info.GUID,
