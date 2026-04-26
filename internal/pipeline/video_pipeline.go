@@ -181,6 +181,7 @@ type VideoPipelineConfig struct {
 	NodePath          string        // Node.js路径
 	OutputDir         string        // 输出目录
 	TempDir           string        // 临时目录
+	AlbumTitle        string        // 专辑标题，用于创建专辑子目录
 }
 
 // VideoPipeline 视频级流水线管理器
@@ -244,6 +245,17 @@ func (p *VideoPipeline) Start(ctx context.Context, videos []api.AlbumVideoItem, 
 	p.processor = processor.NewProcessor(p.cfg.FFmpegPath, p.cfg.NodePath, p.cfg.FFmpegConcurrency, p.logger)
 	p.processor.SetDecryptWorkers(p.cfg.DecryptWorkers)
 
+	// 计算实际输出目录（如果设置了专辑标题，创建专辑子目录）
+	actualOutputDir := p.cfg.OutputDir
+	if p.cfg.AlbumTitle != "" {
+		albumDirName := title.SafeName(p.cfg.AlbumTitle)
+		actualOutputDir = filepath.Join(p.cfg.OutputDir, albumDirName)
+		if err := os.MkdirAll(actualOutputDir, 0755); err != nil {
+			return fmt.Errorf("创建专辑目录失败: %w", err)
+		}
+		p.logger.Info("创建专辑输出目录", "path", actualOutputDir, "album", p.cfg.AlbumTitle)
+	}
+
 	// 初始化进度
 	p.progress = &PipelineProgress{
 		Total:     len(videos),
@@ -270,7 +282,8 @@ func (p *VideoPipeline) Start(ctx context.Context, videos []api.AlbumVideoItem, 
 	go func() {
 		for idx, video := range videos {
 			tempDir := filepath.Join(p.cfg.TempDir, fmt.Sprintf("video_%03d_%s", idx+1, video.GUID))
-			outputPath := filepath.Join(p.cfg.OutputDir, title.SafeName(video.Title)+".mp4")
+			// 使用实际输出目录（包含专辑子目录）
+			outputPath := filepath.Join(actualOutputDir, title.SafeName(video.Title)+".mp4")
 
 			task := NewVideoTask(idx+1, video, tempDir, outputPath)
 

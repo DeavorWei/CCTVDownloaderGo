@@ -124,6 +124,10 @@ func (c *AlbumController) RunGet(ctx context.Context, url string, startDate, end
 			state.DateRange{StartDate: startDate, EndDate: endDate},
 			len(albumInfo.Videos),
 		)
+		// 设置专辑输出目录
+		if albumInfo.Title != "" {
+			downloadState.AlbumOutputDir = filepath.Join(c.cfg.OutputDir, title.SafeName(albumInfo.Title))
+		}
 	}
 	if err := stateMgr.Save(downloadState); err != nil {
 		c.logger.Warn("保存状态失败", "error", err)
@@ -225,10 +229,16 @@ func (c *AlbumController) filterCompletedVideos(albumInfo *api.AlbumInfo, downlo
 	var pendingVideos []api.AlbumVideoItem
 	skippedCount := 0
 
+	// 确定输出目录：优先使用状态中保存的专辑目录，向后兼容旧状态文件
+	outputDir := c.cfg.OutputDir
+	if downloadState.AlbumOutputDir != "" {
+		outputDir = downloadState.AlbumOutputDir
+	}
+
 	for _, video := range albumInfo.Videos {
 		if stateMgr.IsVideoCompleted(downloadState.AlbumID, video.GUID) {
-			// 记录跳过的视频
-			outputPath := filepath.Join(c.cfg.OutputDir, title.SafeName(video.Title)+".mp4")
+			// 记录跳过的视频，使用正确的输出目录
+			outputPath := filepath.Join(outputDir, title.SafeName(video.Title)+".mp4")
 			stateMgr.MarkVideoSkipped(downloadState.AlbumID, video.GUID, video.Title, outputPath)
 			skippedCount++
 			c.logger.Info("跳过已下载", "guid", video.GUID, "title", video.Title)
@@ -309,6 +319,7 @@ func (c *AlbumController) downloadAlbum(ctx context.Context, album *api.AlbumInf
 		NodePath:          c.cfg.NodePath,
 		OutputDir:         c.cfg.OutputDir,
 		TempDir:           c.cfg.TempDir,
+		AlbumTitle:        album.Title, // 传递专辑标题，用于创建专辑子目录
 	}
 
 	// 创建流水线

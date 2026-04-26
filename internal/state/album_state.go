@@ -49,8 +49,9 @@ type AlbumDownloadState struct {
 	SourceURL  string `json:"source_url"`  // 来源URL
 
 	// 下载配置
-	DateRange  DateRange `json:"date_range"`  // 日期范围
-	TotalCount int       `json:"total_count"` // 视频总数
+	DateRange      DateRange `json:"date_range"`       // 日期范围
+	TotalCount     int       `json:"total_count"`      // 视频总数
+	AlbumOutputDir string    `json:"album_output_dir"` // 专辑输出目录（子目录路径）
 
 	// 下载进度
 	CompletedGUIDs []string `json:"completed_guids"` // 已完成视频GUID列表
