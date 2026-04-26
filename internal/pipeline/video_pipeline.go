@@ -485,7 +485,9 @@ func (p *VideoPipeline) downloadVideo(task *VideoTask) error {
 	}
 	videoInfo.Title = title.SafeName(videoTitle)
 	task.VideoInfo = videoInfo
-	task.OutputPath = filepath.Join(p.cfg.OutputDir, videoInfo.Title+".mp4")
+	// 保留原有的目录结构（包含专辑子目录），只更新文件名
+	outputDir := filepath.Dir(task.OutputPath)
+	task.OutputPath = filepath.Join(outputDir, videoInfo.Title+".mp4")
 
 	// 创建临时目录
 	if err := os.MkdirAll(task.TempDir, 0755); err != nil {
