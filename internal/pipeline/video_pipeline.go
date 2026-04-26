@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/CCTVDownloadGo/cctvdown/internal/api"
@@ -209,6 +210,10 @@ type VideoPipeline struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
+
+	// 级联关闭追踪（原子计数器）
+	downloadWorkersActive atomic.Int32 // 仍在运行的 downloadWorker 数量
+	processWorkersActive  atomic.Int32 // 仍在运行的 processWorker 数量
 }
 
 // NewVideoPipeline 创建视频流水线
@@ -261,6 +266,10 @@ func (p *VideoPipeline) Start(ctx context.Context, videos []api.AlbumVideoItem, 
 		Total:     len(videos),
 		StartTime: time.Now(),
 	}
+
+	// 初始化级联关闭计数器
+	p.downloadWorkersActive.Store(int32(p.cfg.DownloadSlots))
+	p.processWorkersActive.Store(int32(p.cfg.ProcessWorkers))
 
 	// 启动下载worker池
 	for i := 0; i < p.cfg.DownloadSlots; i++ {
@@ -324,6 +333,12 @@ func (p *VideoPipeline) Wait() (completed, failed, skipped int) {
 // downloadWorker 下载worker
 func (p *VideoPipeline) downloadWorker(id int) {
 	defer p.wg.Done()
+	defer func() {
+		// 最后一个 downloadWorker 负责关闭 processQueue
+		if p.downloadWorkersActive.Add(-1) == 0 {
+			close(p.processQueue)
+		}
+	}()
 
 	for task := range p.downloadQueue {
 		select {
@@ -381,6 +396,12 @@ func (p *VideoPipeline) downloadWorker(id int) {
 // processWorker 处理worker（解密+合并）
 func (p *VideoPipeline) processWorker(id int) {
 	defer p.wg.Done()
+	defer func() {
+		// 最后一个 processWorker 负责关闭 resultQueue
+		if p.processWorkersActive.Add(-1) == 0 {
+			close(p.resultQueue)
+		}
+	}()
 
 	for task := range p.processQueue {
 		select {
