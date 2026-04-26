@@ -423,21 +423,50 @@ func (p *Processor) DownloadDirect(ctx context.Context, m3u8URL, outputPath stri
 }
 
 // getDecryptScriptDir 获取解密脚本目录
+// 支持两种目录结构: assets/decrypt 和 decrypt
 func (p *Processor) getDecryptScriptDir() (string, error) {
-	// 首先检查当前目录
-	cwd, _ := os.Getwd()
-	scriptDir := filepath.Join(cwd, "assets", "decrypt")
-	if _, err := os.Stat(filepath.Join(scriptDir, "dec.mjs")); err == nil {
-		return scriptDir, nil
+	// 定义必要的脚本文件
+	requiredFiles := []string{"dec.mjs", "cctv.worker.new.js"}
+
+	// 辅助函数：检查目录是否包含所有必要文件
+	checkDir := func(dir string) bool {
+		for _, file := range requiredFiles {
+			if _, err := os.Stat(filepath.Join(dir, file)); err != nil {
+				return false
+			}
+		}
+		return true
 	}
 
-	// 检查可执行文件目录
+	// 获取可执行文件目录
 	execPath, _ := os.Executable()
 	execDir := filepath.Dir(execPath)
-	scriptDir = filepath.Join(execDir, "assets", "decrypt")
-	if _, err := os.Stat(filepath.Join(scriptDir, "dec.mjs")); err == nil {
-		return scriptDir, nil
+
+	// 获取当前工作目录
+	cwd, _ := os.Getwd()
+
+	// 搜索路径列表（按优先级排序）
+	type searchPath struct {
+		base string
+		sub  string
+	}
+	searchPaths := []searchPath{
+		{cwd, "assets/decrypt"},
+		{cwd, "decrypt"},
+		{execDir, "assets/decrypt"},
+		{execDir, "decrypt"},
 	}
 
-	return "", fmt.Errorf("未找到解密脚本目录")
+	// 遍历搜索路径
+	for _, sp := range searchPaths {
+		dir := filepath.Join(sp.base, sp.sub)
+		if checkDir(dir) {
+			return dir, nil
+		}
+	}
+
+	// 构建详细的错误信息
+	return "", fmt.Errorf("未找到解密脚本目录\n\n请将解密脚本目录放在以下任一位置：\n  - %s\n  - %s\n\n解密脚本目录应包含以下文件：\n  - dec.mjs\n  - cctv.worker.new.js",
+		filepath.Join(execDir, "assets", "decrypt"),
+		filepath.Join(execDir, "decrypt"))
 }

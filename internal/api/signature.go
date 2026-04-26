@@ -22,8 +22,10 @@ const (
 )
 
 // GenerateCNTVSignature CNTV API MD5签名
+// 注意：签名计算必须与请求参数中的uid保持一致
+// 使用 "undefined" 而非 FixedUID，以获取可访问的CDN域名
 func GenerateCNTVSignature(tsp string) string {
-	data := tsp + Version + SecretKey + FixedUID
+	data := tsp + Version + SecretKey + "undefined"
 	hash := md5.Sum([]byte(data))
 	return hex.EncodeToString(hash[:])
 }

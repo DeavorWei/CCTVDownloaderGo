@@ -155,13 +155,15 @@ func (c *CCTVClient) GetVideoInfo(pid string) (*VideoInfo, error) {
 	vc := GenerateCNTVSignature(tsp)
 
 	// 构建请求参数
+	// 使用 uid=undefined 而非固定UID，以获取可访问的CDN域名
 	params := map[string]string{
 		"pid":    pid,
 		"client": "flash",
 		"im":     "0",
 		"tsp":    tsp,
 		"vn":     Version,
-		"uid":    FixedUID,
+		"uid":    "undefined",
+		"wlan":   "",
 		"vc":     vc,
 	}
 
@@ -215,26 +217,10 @@ func (c *CCTVClient) GetVideoInfo(pid string) (*VideoInfo, error) {
 	}
 
 	// 检测4K视频：play_channel字段包含"CCTV-4K"
+	// 4K视频不再特殊处理，统一走下面的URL选择逻辑
 	if strings.Contains(result.PlayChannel, "CCTV-4K") {
 		info.Is4K = true
 		c.logger.Info("检测到CCTV-4K频道视频", "pid", pid, "play_channel", result.PlayChannel)
-
-		// 4K视频使用顶层hls_url，需要替换main为4000
-		if result.HLSURL != "" {
-			// 将URL中的main替换为4000以获取4K流
-			info.M3U8URL = strings.Replace(result.HLSURL, "main", "4000", 1)
-			info.HLSKey = "hls_url"
-			info.IsEncrypted = false
-
-			c.logger.Info("4K视频URL处理完成",
-				"original_url", result.HLSURL,
-				"processed_url", info.M3U8URL,
-			)
-
-			return info, nil
-		}
-
-		c.logger.Warn("4K视频但未找到顶层hls_url，尝试其他方式")
 	}
 
 	// 普通视频：优先选择加密流（hls_h5e_url > hls_enc_url > hls_enc2_url），其次普通流（hls_url）

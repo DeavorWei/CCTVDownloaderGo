@@ -154,14 +154,9 @@ func (c *CCTV4KClient) Parse4KM3U8Content(m3u8Content, baseURL string) ([]string
 	return tsList, nil
 }
 
-// Process4KURL 处理4K视频URL
-// 将URL中的"main"替换为"4000"以获取4K流
-func Process4KURL(originalURL string) string {
-	// 替换main为4000
-	processedURL := strings.Replace(originalURL, "main", "4000", 1)
-	return processedURL
-}
-
+// Process4KURL 已废弃
+// 4K视频现在统一使用 manifest.hls_h5e_url 字段，通过解析主播放列表获取码率URL
+// 不再需要手动替换URL路径
 // Is4KChannel 检测是否为4K频道
 func Is4KChannel(playChannel string) bool {
 	return strings.Contains(playChannel, "CCTV-4K")
