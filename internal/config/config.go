@@ -52,7 +52,7 @@ func DefaultConfig() *Config {
 		FFmpegConcurrency:   8,
 		OutputDir:           outputDir,
 		TempDir:             tempDir,
-		AlbumDownloadSlots:  2, // 同时下载2个视频
+		AlbumDownloadSlots:  1, // 同时下载1个视频，下载完成后立即开始下一个
 		AlbumProcessWorkers: 2, // 同时处理2个视频
 		DecryptWorkers:      8, // 解密并行进程数
 		FFmpegPath:          "ffmpeg",
@@ -150,8 +150,9 @@ temp_dir: ""
 # 同时下载的视频数
 # 范围: 1-8
 # 控制专辑批量下载时的并行下载数
-# 建议值: 2-4，过高可能触发服务器限速
-album_download_slots: 2
+# 设置为1时：前一个视频下载完成后立即开始下一个，无需等待处理完成
+# 建议值: 1，可最大化网络利用率
+album_download_slots: 1
 
 # 同时处理的视频数
 # 范围: 1-8
